@@ -4,6 +4,10 @@
 
 //Pin connected to latch pin (ST_CP) of 74HC595
 #include "Arduino.h"
+#include "Time.h"
+#define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
+#define TIME_HEADER  'T'   // Header tag for serial time sync message
+#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
 void setup();
 void loop();
 void strobeDigitWrite(int digit,int num);
@@ -29,7 +33,8 @@ void setup() {
     digitalWrite(digits[i],LOW);
   }
   Serial.begin(9600);
-  Serial.println("reset");
+  Serial.println("rese3t");
+  setTime(1351728593);
 }
 int values[digitsSize]={0,0,0,0};
 int currentVal=0;
@@ -40,12 +45,28 @@ void loop() {
     // so if the user types a number from 0 through 9 in ASCII, 
     // you can subtract 48 to get the actual value:
     int num = Serial.read() - 48;
+    Serial.print(">>>");
     values[currentVal]=num;
     currentVal++;
     if(currentVal>=digitsSize)
       currentVal=0;
+    
+    if(timeStatus()!= timeNotSet)   
+    {
+      Serial.print("time set");
+      Serial.print(second(),3);
+    }
+    else
+    {
+      Serial.print("time not set");
+    }
   // write to the shift register with the correct bit set high:
   }
+  values[0]=minute()/10;
+  values[1]=minute()%10;
+  values[2]=second()/10;
+  values[3]=second()%10;
+
   for(int i=0;i<digitsSize;i++)
   {
     strobeDigitWrite(i,values[i]);
@@ -62,7 +83,7 @@ void strobeDigitWrite(int digit,int num)
 
 void digitWrite(int num) {
   // the bits you want to send
-  byte bitsToSend = numberToByte(num,1);
+  byte bitsToSend = numberToByte(num,0);
   //Serial.print(bitsToSend,BIN);
   //Serial.print("\n");
   // turn off the output so the pins don't light up
