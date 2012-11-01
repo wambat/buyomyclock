@@ -13,11 +13,11 @@ void loop();
 void strobeDigitWrite(int digit,int num);
 void digitWrite(int num);
 byte numberToByte(int numToDisplay,boolean dp);
-const int latchPin = 28;
+const int latchPin = 32;
 //Pin connected to clock pin (SH_CP) of 74HC595
-const int clockPin = 27;
+const int clockPin = 31;
 ////Pin connected to Data in (DS) of 74HC595
-const int dataPin = 26;
+const int dataPin = 30;
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
 
@@ -36,7 +36,8 @@ void setup() {
   Serial.println("rese3t");
   setTime(1351728593);
 }
-int values[digitsSize]={0,0,0,0};
+int values1[digitsSize]={0,0,0,0};
+int values2[digitsSize]={0,0,0,0};
 int currentVal=0;
 void loop() {
   if (Serial.available() > 0) {
@@ -46,7 +47,7 @@ void loop() {
     // you can subtract 48 to get the actual value:
     int num = Serial.read() - 48;
     Serial.print(">>>");
-    values[currentVal]=num;
+    values1[currentVal]=num;
     currentVal++;
     if(currentVal>=digitsSize)
       currentVal=0;
@@ -62,21 +63,38 @@ void loop() {
     }
   // write to the shift register with the correct bit set high:
   }
-  values[0]=minute()/10;
-  values[1]=minute()%10;
-  values[2]=second()/10;
-  values[3]=second()%10;
+  values1[0]=day()/10;
+  values1[1]=day()%10;
+  values1[2]=hour()/10;
+  values1[3]=hour()%10;
+
+  values2[0]=minute()/10;
+  values2[1]=minute()%10;
+  values2[2]=second()/10;
+  values2[3]=second()%10;
+
+  values1[0]=0;
+  values1[1]=1;
+  values1[2]=2;
+  values1[3]=3;
+
+  values2[0]=4;
+  values2[1]=5;
+  values2[2]=6;
+  values2[3]=7;
+
 
   for(int i=0;i<digitsSize;i++)
   {
-    strobeDigitWrite(i,values[i]);
+    strobeDigitWrite(i,values1[i],values2[i]);
   }
 }
-void strobeDigitWrite(int digit,int num)
-{
+void strobeDigitWrite(int digit,int num1,int num2)
+{  
+  digitWrite(num1);
+  digitWrite(num2);
   digitalWrite(digits[digit],HIGH);
-  digitWrite(num);
-
+  delay(1);
   digitalWrite(digits[digit],LOW);
 }
 // This method sends bits to the shift register:
