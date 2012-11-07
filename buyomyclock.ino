@@ -5,6 +5,7 @@
 //Pin connected to latch pin (ST_CP) of 74HC595
 #include "Arduino.h"
 #include "Time.h"
+#include "TimeAlarms.h"
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
 #define TIME_HEADER  'T'   // Header tag for serial time sync message
 #define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
@@ -21,6 +22,13 @@ const int dataPin = 30;
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
 
+int countdownmax=59*60+59;
+int bms=10;
+int bmstime=10;
+int countdown1;
+int countdown2;
+int bm1,bm2,bmc1,bmc2;
+int turn;
 
 void setup() {
   //set pins to output because they are addressed in the main loop
@@ -35,10 +43,20 @@ void setup() {
   Serial.begin(9600);
   Serial.println("rese3t");
   setTime(1351728593);
+  countdown1=countdownmax;
+  countdown2=countdownmax;
+  bm1=bms;
+  bm2=bms;
+  bmc1=bmstime;
+  bmc2=bmstime;
+  turn=0;
+  Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds    
+  
 }
 int values1[digitsSize]={0,0,0,0};
 int values2[digitsSize]={0,0,0,0};
 int currentVal=0;
+
 void loop() {
   if (Serial.available() > 0) {
     // ASCII '0' through '9' characters are
@@ -46,7 +64,6 @@ void loop() {
     // so if the user types a number from 0 through 9 in ASCII, 
     // you can subtract 48 to get the actual value:
     int num = Serial.read() - 48;
-    Serial.print(">>>");
     values1[currentVal]=num;
     currentVal++;
     if(currentVal>=digitsSize)
@@ -63,31 +80,37 @@ void loop() {
     }
   // write to the shift register with the correct bit set high:
   }
-  values1[0]=day()/10;
-  values1[1]=day()%10;
-  values1[2]=hour()/10;
-  values1[3]=hour()%10;
-
-  values2[0]=minute()/10;
-  values2[1]=minute()%10;
-  values2[2]=second()/10;
-  values2[3]=second()%10;
-
-  values1[0]=0;
+  Alarm.delay(1);
+    
+  values1[0]=1;
   values1[1]=1;
-  values1[2]=2;
-  values1[3]=3;
+  values1[2]=1;
+  values1[3]=1;
 
   values2[0]=4;
   values2[1]=5;
   values2[2]=6;
   values2[3]=7;
-
+  makeValuesOnMain();
 
   for(int i=0;i<digitsSize;i++)
   {
-    strobeDigitWrite(i,values1[i],values2[i]);
+    strobeDigitWrite(i,values2[i],values1[i]);
   }
+}
+void ticktack()
+{
+  countdown1--;
+  Serial.print("tick");
+}
+void makeValuesOnMain()
+{
+  int mins=countdown1/60;
+  int secs=countdown1%(mins*60);
+  values1[0]=mins/10;
+  values1[1]=mins%10;
+  values1[2]=secs/10;
+  values1[3]=secs%10;
 }
 void strobeDigitWrite(int digit,int num1,int num2)
 {  
