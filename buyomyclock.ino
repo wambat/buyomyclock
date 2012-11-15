@@ -16,10 +16,33 @@ int startMelody[] = {\
   NOTE_G3,8,\
   NOTE_A3,4,\
   NOTE_G3,4,\
-  4,0,\
+  0,4,\
   NOTE_B3,4,\
   NOTE_C4,4};
 int startMelodySize=8;
+// notes in the melody:
+//G3 G3 G3 D#3 A#4 G3 D#3 A#4 G3 D4 D4 D4 D#4 A#4 F#3 D#3 A#4 G3
+int pauseMelody[] = {\
+  NOTE_G3,4,\
+  NOTE_G3,4,\
+  NOTE_G3,4,\
+  NOTE_DS3,4,\
+  NOTE_AS4,8,\
+  NOTE_G3,8,\
+  NOTE_DS3,4,\
+  NOTE_AS4,8,\
+  NOTE_G3,8,\
+  0,4,\
+  NOTE_D4,4,\
+  NOTE_D4,4,\
+  NOTE_D4,4,\
+  NOTE_DS4,4,\
+  NOTE_AS4,8,\
+  NOTE_FS4,8,\
+  NOTE_DS3,4,\
+  NOTE_AS4,8,\
+  NOTE_G3,8};
+int pauseMelodySize=20;
 
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
 #define TIME_HEADER  'T'   // Header tag for serial time sync message
@@ -34,11 +57,15 @@ const int latchPin = 32;
 const int clockPin = 31;
 ////Pin connected to Data in (DS) of 74HC595
 const int dataPin = 30;
-const int tonePin = 36;
+const int tonePin = 37;
+const int pauseButtonPin = 36;
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
 
 int countdownmax=59*60+59;
+boolean pauseButtonState;
+boolean pauseButtonDebouncer;
+
 int bms=10;
 int bmstime=10;
 int countdown1;
@@ -46,11 +73,16 @@ int countdown2;
 int bm1,bm2,bmc1,bmc2;
 int turn;
 
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
+
 void setup() {
   //set pins to output because they are addressed in the main loop
   pinMode(latchPin, OUTPUT);
   pinMode(dataPin, OUTPUT);  
   pinMode(clockPin, OUTPUT);
+  pinMode(pauseButtonPin, INPUT);
   for(int i=0;i<digitsSize;i++)
   {
     pinMode(digits[i],OUTPUT);
@@ -66,8 +98,10 @@ void setup() {
   bmc1=bmstime;
   bmc2=bmstime;
   turn=0;
-  Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds    
+  pauseButtonState=LOW;
   playMelody(startMelody,startMelodySize);
+  Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds    
+  //
 }
 int values1[digitsSize]={0,0,0,0};
 int values2[digitsSize]={0,0,0,0};
@@ -96,6 +130,7 @@ void loop() {
     }
   // write to the shift register with the correct bit set high:
   }
+  debounceReadPause();
   Alarm.delay(1);
     
   values1[0]=1;
@@ -179,7 +214,7 @@ byte numberToByte(int numToDisplay,boolean dp)
     return byteOut;
 }
 
-void playMelody(int[] notes,int notesSize) {
+void playMelody(int* notes,int notesSize) {
   // iterate over the notes of the melody:
   for (int thisNote = 0; thisNote < notesSize; thisNote++) {
 
@@ -192,9 +227,47 @@ void playMelody(int[] notes,int notesSize) {
     // to distinguish the notes, set a minimum time between them.
     // the note's duration + 30% seems to work well:
     int pauseBetweenNotes = noteDuration * 1.30;
-    delay(pauseBetweenNotes);
+    Alarm.delay(pauseBetweenNotes);
     // stop the tone playing:
     noTone(tonePin);
   }
 }
 
+void debounceReadPause()
+{
+  // read the state of the switch into a local variable:
+  boolean reading = digitalRead(pauseButtonPin);
+
+  // check to see if you just pressed the button 
+  // (i.e. the input went from LOW to HIGH),  and you've waited 
+  // long enough since the last press to ignore any noise:  
+
+  // If the switch changed, due to noise or pressing:
+  if (reading != pauseButtonDebouncer) {
+    // reset the debouncing timer
+    lastDebounceTime = millis();
+  } 
+  
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    // whatever the reading is at, it's been there for longer
+    // than the debounce delay, so take it as the actual current state:
+     //pauseButtonState=!pauseButtonState;
+     onPauseButton();
+  }
+  
+  
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  pauseButtonDebouncer = reading;
+}
+void onPauseButton()
+{
+  if(pauseButtonState==HIGH)
+    Serial.print("PAUSE");
+  if(pauseButtonState==LOW)
+    Serial.print("RESUME");
+}
+void playPauseMelody()
+{
+  playMelody(pauseMelody,pauseMelodySize);
+}
