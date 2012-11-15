@@ -6,6 +6,21 @@
 #include "Arduino.h"
 #include "Time.h"
 #include "TimeAlarms.h"
+
+#include "pitches.h"
+
+// notes in the melody:
+int startMelody[] = {\
+  NOTE_C4,4,\
+  NOTE_G3,8,\
+  NOTE_G3,8,\
+  NOTE_A3,4,\
+  NOTE_G3,4,\
+  4,0,\
+  NOTE_B3,4,\
+  NOTE_C4,4};
+int startMelodySize=8;
+
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
 #define TIME_HEADER  'T'   // Header tag for serial time sync message
 #define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
@@ -19,6 +34,7 @@ const int latchPin = 32;
 const int clockPin = 31;
 ////Pin connected to Data in (DS) of 74HC595
 const int dataPin = 30;
+const int tonePin = 36;
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
 
@@ -51,7 +67,7 @@ void setup() {
   bmc2=bmstime;
   turn=0;
   Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds    
-  
+  playMelody(startMelody,startMelodySize);
 }
 int values1[digitsSize]={0,0,0,0};
 int values2[digitsSize]={0,0,0,0};
@@ -163,4 +179,22 @@ byte numberToByte(int numToDisplay,boolean dp)
     return byteOut;
 }
 
+void playMelody(int[] notes,int notesSize) {
+  // iterate over the notes of the melody:
+  for (int thisNote = 0; thisNote < notesSize; thisNote++) {
+
+    // to calculate the note duration, take one second 
+    // divided by the note type.
+    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+    int noteDuration = 1000/notes[thisNote*2+1];
+    tone(tonePin, notes[thisNote*2],noteDuration);
+
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    // stop the tone playing:
+    noTone(tonePin);
+  }
+}
 
