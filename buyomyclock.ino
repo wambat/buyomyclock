@@ -65,6 +65,7 @@ const int digits[]={22,23,24,25};
 
 int countdownmax=59*60+59;
 boolean pauseButtonState;
+boolean pauseButtonLast;
 boolean pauseButtonDebouncer;
 
 int bms=10;
@@ -85,7 +86,7 @@ void setup() {
   pinMode(dataPin, OUTPUT);  
   pinMode(clockPin, OUTPUT);
   pinMode(pauseButtonPin, INPUT);
-  digitalWrite(pauseButtonPin, LOW);
+  digitalWrite(pauseButtonPin, HIGH);
   for(int i=0;i<digitsSize;i++)
   {
     pinMode(digits[i],OUTPUT);
@@ -102,6 +103,8 @@ void setup() {
   bmc2=bmstime;
   turn=0;
   pauseButtonState=LOW;
+  pauseButtonDebouncer=HIGH;
+  pauseButtonLast=LOW;
   playMelody(startMelody,startMelodySize);
   Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds
   setupRefreshTimer();
@@ -159,7 +162,6 @@ void makeValuesOnMain()
   values1[1]=mins%10;
   values1[2]=secs/10;
   values1[3]=secs%10;
-  Serial.print("time not set");
 }
 void strobeDigitWrite(int digit,int num1,int num2)
 {  
@@ -167,7 +169,7 @@ void strobeDigitWrite(int digit,int num1,int num2)
   digitWrite(num2);
   
   digitalWrite(digits[digit],HIGH);
-  delayMicroseconds(200);
+  delayMicroseconds(250);
   digitalWrite(digits[digit],LOW);
 }
 // This method sends bits to the shift register:
@@ -236,8 +238,8 @@ void debounceReadPause()
 {
   // read the state of the switch into a local variable:
   boolean reading = digitalRead(pauseButtonPin);
-
-  // check to see if you just pressed the button 
+  digitalWrite(13,pauseButtonDebouncer);
+    // check to see if you just pressed the button 
   // (i.e. the input went from LOW to HIGH),  and you've waited 
   // long enough since the last press to ignore any noise:  
 
@@ -250,8 +252,11 @@ void debounceReadPause()
   if ((millis() - lastDebounceTime) > debounceDelay) {
     // whatever the reading is at, it's been there for longer
     // than the debounce delay, so take it as the actual current state:
-     //pauseButtonState=!pauseButtonState;
-     onPauseButton();
+     if(pauseButtonLast<pauseButtonDebouncer)
+     {  
+       onPauseButton();
+       pauseButtonLast=pauseButtonDebouncer
+     }
   }
   
   
@@ -261,6 +266,7 @@ void debounceReadPause()
 }
 void onPauseButton()
 {
+  pauseButtonState=!pauseButtonState;
   if(pauseButtonState==HIGH)
     Serial.print("PAUSE");
   if(pauseButtonState==LOW)
