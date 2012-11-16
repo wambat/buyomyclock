@@ -8,14 +8,14 @@
 #include "TimeAlarms.h"
 #include "pitches.h"
 // notes in the melody:
-int startMelody[] = {\
-  NOTE_C4,4,\
-  NOTE_G3,8,\
-  NOTE_G3,8,\
-  NOTE_A3,4,\
-  NOTE_G3,4,\
-  0,4,\
-  NOTE_B3,4,\
+int startMelody[] = {
+  NOTE_C4,4,
+  NOTE_G3,8,
+  NOTE_G3,8,
+  NOTE_A3,4,
+  NOTE_G3,4,
+  0,4,
+  NOTE_B3,4,
   NOTE_C4,4};
 int startMelodySize=8;
 // notes in the melody:
@@ -85,6 +85,7 @@ void setup() {
   pinMode(dataPin, OUTPUT);  
   pinMode(clockPin, OUTPUT);
   pinMode(pauseButtonPin, INPUT);
+  digitalWrite(pauseButtonPin, LOW);
   for(int i=0;i<digitsSize;i++)
   {
     pinMode(digits[i],OUTPUT);
@@ -166,7 +167,7 @@ void strobeDigitWrite(int digit,int num1,int num2)
   digitWrite(num2);
   
   digitalWrite(digits[digit],HIGH);
-  delayMicroseconds(4444);
+  delayMicroseconds(200);
   digitalWrite(digits[digit],LOW);
 }
 // This method sends bits to the shift register:
@@ -273,17 +274,17 @@ void setupRefreshTimer()
 {
    // initialize Timer1
     cli();             // disable global interrupts
-    TCCR2A = 0;        // set entire TCCR1A register to 0
-    TCCR2B = 0;
+    TCCR1A = 0;        // set entire TCCR1A register to 0
+    TCCR1B = 0;
  
     // enable Timer1 overflow interrupt:
-    TIMSK2 = (1 << TOIE1);
+    TIMSK1 = (1 << TOIE1);
     // Set CS10 bit so timer runs at clock speed:
-    TCCR2B |= (1 << CS10);
+    TCCR1B |= (1 << CS10);
     // enable global interrupts:
     sei();
 }
-ISR(TIMER2_OVF_vect)
+ISR(TIMER1_OVF_vect)
 {
     refreshDisplay();
 }
