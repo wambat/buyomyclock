@@ -60,23 +60,31 @@ const int dataPin = 30;
 const int tonePin = 37;
 
 const int pauseButtonPin = 36;
+const int turnButtonPin = 38;
+
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
 
 int countdownmax=59*60+59;
+
 boolean pauseButtonState;
 boolean pauseButtonLast;
 boolean pauseButtonDebouncer;
+boolean turnButtonState;
+boolean turnButtonLast;
+boolean turnButtonDebouncer;
 
 int bms=10;
 int bmstime=10;
 int countdown1;
 int countdown2;
 int bm1,bm2,bmc1,bmc2;
-int turn;
+boolean turn;
 
 
-long lastDebounceTime = 0;  // the last time the output pin was toggled
+long lastPauseDebounceTime = 0;  // the last time the output pin was toggled
+long lastTurnDebounceTime = 0;  // the last time the output pin was toggled
+
 long debounceDelay = 50;    // the debounce time; increase if the output flickers
 
 
@@ -87,6 +95,9 @@ void setup() {
   pinMode(clockPin, OUTPUT);
   pinMode(pauseButtonPin, INPUT);
   digitalWrite(pauseButtonPin, HIGH);
+  pinMode(turnButtonPin, INPUT);
+  digitalWrite(turnButtonPin, HIGH);
+  
   for(int i=0;i<digitsSize;i++)
   {
     pinMode(digits[i],OUTPUT);
@@ -101,10 +112,14 @@ void setup() {
   bm2=bms;
   bmc1=bmstime;
   bmc2=bmstime;
-  turn=0;
+  turn=0; //first player
   pauseButtonState=LOW;
   pauseButtonDebouncer=HIGH;
-  pauseButtonLast=LOW;
+  pauseButtonLast=HIGH;
+  turnButtonState=LOW;
+  turnButtonDebouncer=HIGH;
+  turnButtonLast=HIGH;
+  
   playMelody(startMelody,startMelodySize);
   Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds
   setupRefreshTimer();
@@ -138,6 +153,9 @@ void loop() {
   // write to the shift register with the correct bit set high:
   }
   debounceReadPause();
+  debounceReadTurn();
+  
+  
   Alarm.delay(10);
   
 }
@@ -150,10 +168,20 @@ void refreshDisplay()
 }
 void ticktack()
 {
-  countdown1--;
+  countdown();
   makeValuesOnMain();
   Serial.print("tick");
 }
+void countdown()
+{
+  if(pauseButtonState==HIGH)
+    return;
+  if(turn==0)
+    countdown1--;
+  else
+    countdown2--;
+}
+
 void makeValuesOnMain()
 {
   int mins=countdown1/60;
@@ -162,6 +190,12 @@ void makeValuesOnMain()
   values1[1]=mins%10;
   values1[2]=secs/10;
   values1[3]=secs%10;
+  mins=countdown2/60;
+  secs=countdown2%(mins*60);
+  values1[4]=mins/10;
+  values1[5]=mins%10;
+  values1[6]=secs/10;
+  values1[7]=secs%10;
 }
 void strobeDigitWrite(int digit,int num1,int num2)
 {  
@@ -246,17 +280,15 @@ void debounceReadPause()
   // If the switch changed, due to noise or pressing:
   if (reading != pauseButtonDebouncer) {
     // reset the debouncing timer
-    lastDebounceTime = millis();
+    lastPauseDebounceTime = millis();
   } 
   
-  if ((millis() - lastDebounceTime) > debounceDelay) {
+  if ((millis() - lastPauseDebounceTime) > debounceDelay) {
     // whatever the reading is at, it's been there for longer
     // than the debounce delay, so take it as the actual current state:
-     if(pauseButtonLast<pauseButtonDebouncer)
-     {  
-       onPauseButton();
-       pauseButtonLast=pauseButtonDebouncer
-     }
+      if(pauseButtonLast>pauseButtonDebouncer)
+         onPauseButton();
+      pauseButtonLast=pauseButtonDebouncer;
   }
   
   
@@ -264,14 +296,50 @@ void debounceReadPause()
   // it'll be the lastButtonState:
   pauseButtonDebouncer = reading;
 }
+
+void debounceReadTurn()
+{
+  // read the state of the switch into a local variable:
+  boolean reading = digitalRead(turnButtonPin);
+  // If the switch changed, due to noise or pressing:
+  if (reading != turnButtonDebouncer) {
+    // reset the debouncing timer
+    lastTurnDebounceTime = millis();
+  } 
+  
+  if ((millis() - lastTurnDebounceTime) > debounceDelay) {
+    // whatever the reading is at, it's been there for longer
+    // than the debounce delay, so take it as the actual current state:
+      if(turnButtonLast>turnButtonDebouncer)
+         onTurnButton();
+      turnButtonLast=turnButtonDebouncer;
+  }
+  
+  
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  turnButtonDebouncer = reading;
+}
+
+
 void onPauseButton()
 {
   pauseButtonState=!pauseButtonState;
   if(pauseButtonState==HIGH)
+  {
     Serial.print("PAUSE");
+    playPauseMelody();
+  }
   if(pauseButtonState==LOW)
     Serial.print("RESUME");
+  
 }
+void onTurnButton()
+{
+  Serial.print("TURN");
+  turn=turn?0:1;
+}
+
 void playPauseMelody()
 {
   playMelody(pauseMelody,pauseMelodySize);
