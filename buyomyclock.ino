@@ -6,9 +6,7 @@
 #include "Arduino.h"
 #include "Time.h"
 #include "TimeAlarms.h"
-
 #include "pitches.h"
-
 // notes in the melody:
 int startMelody[] = {\
   NOTE_C4,4,\
@@ -47,8 +45,10 @@ int pauseMelodySize=20;
 #define TIME_MSG_LEN  11   // time sync to PC is HEADER followed by unix time_t as ten ascii digits
 #define TIME_HEADER  'T'   // Header tag for serial time sync message
 #define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
+
 void setup();
 void loop();
+
 void strobeDigitWrite(int digit,int num);
 void digitWrite(int num);
 byte numberToByte(int numToDisplay,boolean dp);
@@ -58,6 +58,7 @@ const int clockPin = 31;
 ////Pin connected to Data in (DS) of 74HC595
 const int dataPin = 30;
 const int tonePin = 37;
+
 const int pauseButtonPin = 36;
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
@@ -72,6 +73,7 @@ int countdown1;
 int countdown2;
 int bm1,bm2,bmc1,bmc2;
 int turn;
+
 
 long lastDebounceTime = 0;  // the last time the output pin was toggled
 long debounceDelay = 50;    // the debounce time; increase if the output flickers
@@ -100,7 +102,8 @@ void setup() {
   turn=0;
   pauseButtonState=LOW;
   playMelody(startMelody,startMelodySize);
-  Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds    
+  Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds
+  setupRefreshTimer();
   //
 }
 int values1[digitsSize]={0,0,0,0};
@@ -131,19 +134,11 @@ void loop() {
   // write to the shift register with the correct bit set high:
   }
   debounceReadPause();
-  Alarm.delay(1);
-    
-  values1[0]=1;
-  values1[1]=1;
-  values1[2]=1;
-  values1[3]=1;
-
-  values2[0]=4;
-  values2[1]=5;
-  values2[2]=6;
-  values2[3]=7;
-  makeValuesOnMain();
-
+  Alarm.delay(10);
+  
+}
+void refreshDisplay()
+{
   for(int i=0;i<digitsSize;i++)
   {
     strobeDigitWrite(i,values2[i],values1[i]);
@@ -152,6 +147,7 @@ void loop() {
 void ticktack()
 {
   countdown1--;
+  makeValuesOnMain();
   Serial.print("tick");
 }
 void makeValuesOnMain()
@@ -162,13 +158,15 @@ void makeValuesOnMain()
   values1[1]=mins%10;
   values1[2]=secs/10;
   values1[3]=secs%10;
+  Serial.print("time not set");
 }
 void strobeDigitWrite(int digit,int num1,int num2)
 {  
   digitWrite(num1);
   digitWrite(num2);
+  
   digitalWrite(digits[digit],HIGH);
-  delay(1);
+  delayMicroseconds(4444);
   digitalWrite(digits[digit],LOW);
 }
 // This method sends bits to the shift register:
@@ -271,3 +269,22 @@ void playPauseMelody()
 {
   playMelody(pauseMelody,pauseMelodySize);
 }
+void setupRefreshTimer()
+{
+   // initialize Timer1
+    cli();             // disable global interrupts
+    TCCR2A = 0;        // set entire TCCR1A register to 0
+    TCCR2B = 0;
+ 
+    // enable Timer1 overflow interrupt:
+    TIMSK2 = (1 << TOIE1);
+    // Set CS10 bit so timer runs at clock speed:
+    TCCR2B |= (1 << CS10);
+    // enable global interrupts:
+    sei();
+}
+ISR(TIMER2_OVF_vect)
+{
+    refreshDisplay();
+}
+
