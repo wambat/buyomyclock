@@ -1,5 +1,5 @@
 /*
-
+Uh
  */
 
 //Pin connected to latch pin (ST_CP) of 74HC595
@@ -60,7 +60,8 @@ const int dataPin = 30;
 const int tonePin = 37;
 
 const int pauseButtonPin = 36;
-const int turnButtonPin = 38;
+const int turn0ButtonPin = 38;
+const int turn1ButtonPin = 39;
 
 const int digitsSize=4;
 const int digits[]={22,23,24,25};
@@ -70,9 +71,14 @@ int countdownmax=59*60+59;
 boolean pauseButtonState;
 boolean pauseButtonLast;
 boolean pauseButtonDebouncer;
-boolean turnButtonState;
-boolean turnButtonLast;
-boolean turnButtonDebouncer;
+
+boolean turn0ButtonState;
+boolean turn0ButtonLast;
+boolean turn0ButtonDebouncer;
+
+boolean turn1ButtonState;
+boolean turn1ButtonLast;
+boolean turn1ButtonDebouncer;
 
 int bms=10;
 int bmstime=10;
@@ -83,7 +89,8 @@ boolean turn;
 
 
 long lastPauseDebounceTime = 0;  // the last time the output pin was toggled
-long lastTurnDebounceTime = 0;  // the last time the output pin was toggled
+long lastTurn0DebounceTime = 0;  // the last time the output pin was toggled
+long lastTurn1DebounceTime = 0;  // the last time the output pin was toggled
 
 long debounceDelay = 50;    // the debounce time; increase if the output flickers
 
@@ -95,8 +102,10 @@ void setup() {
   pinMode(clockPin, OUTPUT);
   pinMode(pauseButtonPin, INPUT);
   digitalWrite(pauseButtonPin, HIGH);
-  pinMode(turnButtonPin, INPUT);
-  digitalWrite(turnButtonPin, HIGH);
+  pinMode(turn0ButtonPin, INPUT);
+  digitalWrite(turn0ButtonPin, HIGH);
+  pinMode(turn1ButtonPin, INPUT);
+  digitalWrite(turn1ButtonPin, HIGH);
   
   for(int i=0;i<digitsSize;i++)
   {
@@ -116,13 +125,16 @@ void setup() {
   pauseButtonState=LOW;
   pauseButtonDebouncer=HIGH;
   pauseButtonLast=HIGH;
-  turnButtonState=LOW;
-  turnButtonDebouncer=HIGH;
-  turnButtonLast=HIGH;
+  turn0ButtonState=LOW;
+  turn0ButtonDebouncer=HIGH;
+  turn0ButtonLast=HIGH;
+  turn1ButtonState=LOW;
+  turn1ButtonDebouncer=HIGH;
+  turn1ButtonLast=HIGH;
   
   playMelody(startMelody,startMelodySize);
   Alarm.timerRepeat(1, ticktack);            // timer for every 1 seconds
-  setupRefreshTimer();
+  //setupRefreshTimer();
   //
 }
 int values1[digitsSize]={0,0,0,0};
@@ -153,10 +165,12 @@ void loop() {
   // write to the shift register with the correct bit set high:
   }
   debounceReadPause();
-  debounceReadTurn();
+  debounceReadTurn0();
+  debounceReadTurn1();
+  refreshDisplay();
   
   
-  Alarm.delay(10);
+  //Alarm.delay(1);
   
 }
 void refreshDisplay()
@@ -182,6 +196,54 @@ void countdown()
     countdown2--;
 }
 
+void onPauseButton()
+{
+  pauseButtonState=!pauseButtonState;
+  if(pauseButtonState==HIGH)
+  {
+    Serial.print("PAUSE");
+    playPauseMelody();
+  }
+  if(pauseButtonState==LOW)
+    Serial.print("RESUME");
+  
+}
+void onTurn0Button()
+{
+  Serial.print("TURN");
+  turn=1;
+}
+
+void onTurn1Button()
+{
+  Serial.print("TURN");
+  turn=0;
+}
+
+void playPauseMelody()
+{
+  playMelody(pauseMelody,pauseMelodySize);
+}
+void setupRefreshTimer()
+{
+   // initialize Timer1
+    cli();             // disable global interrupts
+    TCCR1A = 0;        // set entire TCCR1A register to 0
+    TCCR1B = 0;
+ 
+    // enable Timer1 overflow interrupt:
+    TIMSK1 = (1 << TOIE1);
+    // Set CS10 bit so timer runs at clock speed:
+    TCCR1B |= (1 << CS10);
+    // enable global interrupts:
+    sei();
+}
+
+ISR(TIMER1_OVF_vect)
+{
+    refreshDisplay();
+}
+
 void makeValuesOnMain()
 {
   int mins=countdown1/60;
@@ -203,7 +265,8 @@ void strobeDigitWrite(int digit,int num1,int num2)
   digitWrite(num2);
   
   digitalWrite(digits[digit],HIGH);
-  delayMicroseconds(250);
+  Alarm.delay(1);
+  //delayMicroseconds(20);
   digitalWrite(digits[digit],LOW);
 }
 // This method sends bits to the shift register:
@@ -297,69 +360,51 @@ void debounceReadPause()
   pauseButtonDebouncer = reading;
 }
 
-void debounceReadTurn()
+void debounceReadTurn0()
 {
   // read the state of the switch into a local variable:
-  boolean reading = digitalRead(turnButtonPin);
+  boolean reading = digitalRead(turn0ButtonPin);
   // If the switch changed, due to noise or pressing:
-  if (reading != turnButtonDebouncer) {
+  if (reading != turn0ButtonDebouncer) {
     // reset the debouncing timer
-    lastTurnDebounceTime = millis();
+    lastTurn0DebounceTime = millis();
   } 
   
-  if ((millis() - lastTurnDebounceTime) > debounceDelay) {
+  if ((millis() - lastTurn0DebounceTime) > debounceDelay) {
     // whatever the reading is at, it's been there for longer
     // than the debounce delay, so take it as the actual current state:
-      if(turnButtonLast>turnButtonDebouncer)
-         onTurnButton();
-      turnButtonLast=turnButtonDebouncer;
+      if(turn0ButtonLast>turn0ButtonDebouncer)
+         onTurn0Button();
+      turn0ButtonLast=turn0ButtonDebouncer;
   }
   
   
   // save the reading.  Next time through the loop,
   // it'll be the lastButtonState:
-  turnButtonDebouncer = reading;
+  turn0ButtonDebouncer = reading;
 }
 
 
-void onPauseButton()
+void debounceReadTurn1()
 {
-  pauseButtonState=!pauseButtonState;
-  if(pauseButtonState==HIGH)
-  {
-    Serial.print("PAUSE");
-    playPauseMelody();
-  }
-  if(pauseButtonState==LOW)
-    Serial.print("RESUME");
+  // read the state of the switch into a local variable:
+  boolean reading = digitalRead(turn1ButtonPin);
+  // If the switch changed, due to noise or pressing:
+  if (reading != turn1ButtonDebouncer) {
+    // reset the debouncing timer
+    lastTurn1DebounceTime = millis();
+  } 
   
+  if ((millis() - lastTurn1DebounceTime) > debounceDelay) {
+    // whatever the reading is at, it's been there for longer
+    // than the debounce delay, so take it as the actual current state:
+      if(turn1ButtonLast>turn1ButtonDebouncer)
+         onTurn1Button();
+      turn1ButtonLast=turn1ButtonDebouncer;
+  }
+  
+  
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  turn1ButtonDebouncer = reading;
 }
-void onTurnButton()
-{
-  Serial.print("TURN");
-  turn=turn?0:1;
-}
-
-void playPauseMelody()
-{
-  playMelody(pauseMelody,pauseMelodySize);
-}
-void setupRefreshTimer()
-{
-   // initialize Timer1
-    cli();             // disable global interrupts
-    TCCR1A = 0;        // set entire TCCR1A register to 0
-    TCCR1B = 0;
- 
-    // enable Timer1 overflow interrupt:
-    TIMSK1 = (1 << TOIE1);
-    // Set CS10 bit so timer runs at clock speed:
-    TCCR1B |= (1 << CS10);
-    // enable global interrupts:
-    sei();
-}
-ISR(TIMER1_OVF_vect)
-{
-    refreshDisplay();
-}
-
